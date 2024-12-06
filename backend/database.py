@@ -30,14 +30,16 @@ def create_table():
         with conn.cursor() as cursor:
             create_table_query = '''
             CREATE TABLE IF NOT EXISTS posts (
-                id INT AUTO_INCREMENT PRIMARY KEY,
+                id INT AUTO_INCREMENT PRIMARY KEY, 
                 writer VARCHAR(255),
+                date VARCHAR(255),
                 title VARCHAR(255),
                 content TEXT,
                 tags VARCHAR(255),
                 sympathy INT,
                 post_url VARCHAR(255),
                 ad_images TEXT
+                광고 VARCHAR(255)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             '''
             cursor.execute(create_table_query)
@@ -52,7 +54,7 @@ def save_to_db(data_list):
     try:
         with conn.cursor() as cursor:
             insert_query = '''
-            INSERT INTO posts (writer, date, title, content, tags, sympathy, post_url, ad_images, ad_detect)
+            INSERT INTO posts (writer, date, title, content, tags, sympathy, post_url, ad_images, 광고)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
             '''
             data_values = [
