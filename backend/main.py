@@ -18,7 +18,7 @@ app.add_middleware(
 )
 
 # 데이터 로드
-data = pd.read_csv('data.csv')
+data = pd.read_csv('api_crawled_data.csv')
 data = data.fillna('')  # NaN 값을 빈 문자열로 대체
 
 # 현재 인덱스를 추적하기 위한 변수
@@ -29,12 +29,14 @@ lock = threading.Lock()
 class DataResponse(BaseModel):
     id: int
     writer: str
+    date: str
     title: str
     content: str
     tags: str
     sympathy: int
     post_url: str
     ad_images: str
+    광고: str
 
 # 서버 시작 시 테이블 생성
 @app.on_event("startup")
@@ -58,12 +60,14 @@ def process_data():
     # 데이터베이스에 저장할 데이터 구성
     record = {
         'writer': str(row.get('writer', '')),
+        'date': str(row.get('date', '')),
         'title': str(row.get('title', '')),
         'content': str(row.get('content', '')),
         'tags': str(row.get('tags', '')),
         'sympathy': int(row.get('sympathy', 0)),
         'post_url': str(row.get('post_url', '')),
-        'ad_images': str(row.get('ad_images', ''))
+        'ad_images': str(row.get('ad_images', '')),
+        '광고': str(row.get('광고', ''))
     }
 
     # 데이터베이스에 저장
@@ -73,12 +77,14 @@ def process_data():
     response_data = DataResponse(
         id=index,
         writer=record['writer'],
+        date=record['date'],
         title=record['title'],
         content=record['content'],
         tags=record['tags'],
         sympathy=record['sympathy'],
         post_url=record['post_url'],
-        ad_images=record['ad_images']
+        ad_images=record['ad_images'],
+        광고=record['광고']
     )
 
     return response_data

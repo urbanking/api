@@ -52,18 +52,20 @@ def save_to_db(data_list):
     try:
         with conn.cursor() as cursor:
             insert_query = '''
-            INSERT INTO posts (writer, title, content, tags, sympathy, post_url, ad_images)
-            VALUES (%s, %s, %s, %s, %s, %s, %s);
+            INSERT INTO posts (writer, date, title, content, tags, sympathy, post_url, ad_images, ad_detect)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
             '''
             data_values = [
                 (
                     item['writer'],
+                    item['date'],
                     item['title'],
                     item['content'],
                     item['tags'],
                     item['sympathy'],
                     item['post_url'],
-                    item['ad_images']
+                    item['ad_images'],
+                    item['광고']
                 ) for item in data_list
             ]
             cursor.executemany(insert_query, data_values)
