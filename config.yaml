@@ -1,3 +1,6 @@
-query: "신촌 음식점"
-max_posts: 50
+query:
+  - "타이완소야"
+  - "기중상점"
+  - "기꾸스시"
+max_posts: 10
 num_crawlers: 1  # 크롤러 수를 1로 설정

@@ -32,6 +32,9 @@ class Crawler:
 
     def create_driver(self) -> webdriver.Chrome:
         options = webdriver.ChromeOptions()
+        options.add_argument("--headless")  # headless 모드 추가
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option("useAutomationExtension", False)
         return webdriver.Chrome(options=options)

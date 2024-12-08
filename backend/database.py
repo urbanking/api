@@ -30,7 +30,7 @@ def create_table():
     try:
         with conn.cursor() as cursor:
             create_table_query = '''
-            CREATE TABLE IF NOT EXISTS cr_data (
+            CREATE TABLE IF NOT EXISTS cr_data2 (
                 id INT AUTO_INCREMENT PRIMARY KEY, 
                 writer VARCHAR(255),
                 date VARCHAR(255),
@@ -55,7 +55,7 @@ def save_to_db(data_list):
     try:
         with conn.cursor() as cursor:
             insert_query = '''
-            INSERT INTO cr_data (writer, date, title, content, tags, sympathy, post_url, ad_images, 광고)
+            INSERT INTO cr_data2 (writer, date, title, content, tags, sympathy, post_url, ad_images, 광고)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
             '''
             data_values = [
@@ -84,7 +84,7 @@ def fetch_all_data():
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            select_query = 'SELECT * FROM cr_data;'
+            select_query = 'SELECT * FROM cr_data2;'
             cursor.execute(select_query)
             results = cursor.fetchall()
         return results

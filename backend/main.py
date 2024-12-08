@@ -1,6 +1,6 @@
 import logging  # 추가: 로깅 모듈 임포트
 import asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks  # 변경: BackgroundTasks 임포트
 from pydantic import BaseModel
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,25 +19,13 @@ async def lifespan(app: FastAPI):
     create_table()
     logging.info("테이블이 생성되거나 존재함이 확인되었습니다.")
     
-    # 크롤링 및 저장 작업 시작
-    crawl_task = asyncio.create_task(crawl_worker(1))  # 단일 크롤러 작업 생성
-    save_task = asyncio.create_task(save())
-    logging.info("크롤링 워커 및 저장 작업이 시작되었습니다.")
+    # 백그라운드 작업 시작
+    asyncio.create_task(crawl_worker(1))
+    asyncio.create_task(save())
     
     try:
         yield
     finally:
-        # 종료 시 작업 취소
-        crawl_task.cancel()
-        save_task.cancel()
-        try:
-            await crawl_task
-        except asyncio.CancelledError:
-            pass
-        try:
-            await save_task
-        except asyncio.CancelledError:
-            pass
         try:
             crawler = Crawler()
             crawler.driver.quit()
@@ -81,7 +69,7 @@ def get_all_data() -> List[DataResponse]:
 # config.yaml에서 설정 로드
 with open('config.yaml', 'r', encoding='utf-8') as file:
     config = yaml.safe_load(file)
-query = config['query']
+queries = config['query']  # 변경: query를 리스트로 로드
 max_posts = config['max_posts']
 num_crawlers = config.get('num_crawlers', 1)  # 변경: 크롤러 수를 1로 설정
 
@@ -98,16 +86,18 @@ async def crawl_worker(worker_id: int):
     crawler = Crawler()
     while True:
         try:
-            urls = crawler.fetch_urls_from_api(query, max_posts)
-            logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
-            for url in urls:
-                # 동기 함수 비동기로 실행
-                data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
-                if data:
-                    await data_queue.put(data)  # asyncio.Queue 사용
-                    logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
-                    logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 추가: 현재 큐 사이즈 로그
-            logging.info(f"Worker {worker_id}: 크롤링 완료. 60초 후 다음 크롤링 시작.")
+            for query in queries:  # 변경: 각 query에 대해 순차적으로 처리
+                urls = crawler.fetch_urls_from_api(query, max_posts)
+                logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
+                for url in urls:
+                    # 동기 함수 비동기로 실행
+                    data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
+                    if data:
+                        await data_queue.put(data)  # asyncio.Queue 사용
+                        logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
+                        logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 추가: 현재 큐 사이즈 로그
+                        logging.info(f"크롤링된 제목: {data['title']}")  # 추가: 크롤링된 제목 출력
+                logging.info(f"Worker {worker_id}: 크롤링 완료. 60초 후 다음 크롤링 시작.")
         except Exception as e:
             logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
         await asyncio.sleep(60)  # 60초 대기 후 다음 크롤링 반복
