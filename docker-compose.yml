@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234  # root 사용자의 비밀번호
+      MYSQL_DATABASE: crawling_db  # 초기 생성할 데이터베이스 이름
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --skip-host-cache --skip-name-resolve
+
+  backend:
+    build:
+      context: ./backend
+    container_name: fastapi_app
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: root  # root 사용자
+      DB_PASSWORD: 1234
+      DB_NAME: crawling_db
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: simple_frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      
+  adminer:
+    image: adminer
+    container_name: adminer
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"
+
+volumes:
+  db_data:

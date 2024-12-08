@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pymysql
+cryptography
+pandas
+transformers
+torch
+scikit-learn
+pandas
+tf-keras
+accelerate
+beautifulsoup4
+selenium

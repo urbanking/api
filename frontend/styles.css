@@ -1,0 +1,42 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+  
+button {
+    padding: 10px 20px;
+    margin-right: 10px;
+}
+  
+#result {
+    margin-top: 20px;
+}
+  
+#result h3 {
+    margin: 0;
+}
+  
+#result p {
+    margin: 5px 0;
+}
+
+/* 예측 결과 스타일링 추가 */
+#predictionResults {
+    margin-top: 20px;
+}
+
+#predictionResults h2 {
+    margin-bottom: 10px;
+}
+
+#predictionsList {
+    list-style-type: none;
+    padding: 0;
+}
+
+#predictionsList li {
+    background-color: #f0f0f0;
+    margin-bottom: 5px;
+    padding: 10px;
+    border-radius: 5px;
+}

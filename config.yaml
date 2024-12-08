@@ -1,0 +1,3 @@
+query: "신촌 음식점"
+max_posts: 50
+num_crawlers: 1  # 크롤러 수를 1로 설정
