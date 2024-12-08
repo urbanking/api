@@ -1,6 +1,6 @@
 import logging  # 추가: 로깅 모듈 임포트
 import asyncio
-from fastapi import FastAPI, BackgroundTasks  # 변경: BackgroundTasks 임포트
+from fastapi import FastAPI, BackgroundTasks, HTTPException  # 변경: HTTPException 임포트
 from pydantic import BaseModel
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,6 +58,17 @@ class DataResponse(BaseModel):
     ad_images: str
     광고: str
 
+class DataRequest(BaseModel):
+    writer: str
+    date: str
+    title: str
+    content: str
+    tags: str
+    sympathy: int
+    post_url: str
+    ad_images: str
+    광고: str
+
 executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=5)  # 병렬 작업을 위한 스레드 풀 생성
 
 # 데이터 조회 엔드포인트 (GET)
@@ -65,6 +76,16 @@ executor: ThreadPoolExecutor = ThreadPoolExecutor(max_workers=5)  # 병렬 작�
 def get_all_data() -> List[DataResponse]:
     results = fetch_all_data()
     return results
+
+# 데이터 삽입 엔드포인트 (POST)
+@app.post("/data", response_model=DataResponse)
+def add_data(data: DataRequest):
+    try:
+        save_to_db([data.dict()])
+        return data
+    except Exception as e:
+        logging.error(f"데이터 삽입 중 오류 발생: {e}")
+        raise HTTPException(status_code=500, detail="데이터 삽입 중 오류 발생")
 
 # config.yaml에서 설정 로드
 with open('config.yaml', 'r', encoding='utf-8') as file:
