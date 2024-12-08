@@ -71,3 +71,4 @@
 1. **Docker Compose 사용**
    ```bash
    docker-compose up --build
+   docker-compose up 후 main.py실행시키면 돌아감(일단 이렇게함)
