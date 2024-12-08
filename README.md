@@ -1,3 +1,6 @@
+predic.py model_train.py는 더미 모델이고 프론트도 지금은 나중에 들어올거 대비해서 더미 프론트인점 참고바람
+
+
 # Project Origogi YBIGTA Conference
 
  FastAPI를 사용하여 웹 크롤링, mysql 에 데이터 저장 및 API 제공
