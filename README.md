@@ -1,4 +1,4 @@
-# Project YBIGTA Conference
+# Project Origogi YBIGTA Conference
 
 이 프로젝트는 FastAPI를 사용하여 웹 크롤링, 데이터 저장 및 API 제공을 수행하는 파이프라인을 구성합니다.
 
