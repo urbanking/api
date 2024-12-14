@@ -4,12 +4,18 @@ import time
 import logging  # 추가: 로깅 모듈 임포트
 from pymysql.err import OperationalError
 
+# 로깅 설정 추가
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
 # 데이터베이스 연결 설정
 def get_connection():
     retries = 5
     while retries > 0:
         try:
-            return pymysql.connect(
+            connection = pymysql.connect(
                 host=os.environ.get('DB_HOST', 'localhost'),
                 port=int(os.environ.get('DB_PORT', 3306)),
                 user=os.environ.get('DB_USER', 'root'),
@@ -18,10 +24,13 @@ def get_connection():
                 charset='utf8mb4',
                 cursorclass=pymysql.cursors.DictCursor
             )
+            logging.info("데이터베이스에 정상적으로 연결되었습니다.")
+            return connection
         except OperationalError as e:
-            print("데이터베이스에 연결할 수 없습니다. 5초 후에 재시도합니다...")
+            logging.error("데이터베이스에 연결할 수 없습니다. 5초 후에 재시도합니다...")
             retries -= 1
             time.sleep(5)
+    logging.critical("여러 번 재시도 후에도 데이터베이스에 연결할 수 없습니다.")
     raise Exception("여러 번 재시도 후에도 데이터베이스에 연결할 수 없습니다.")
 
 # 테이블 생성 함수

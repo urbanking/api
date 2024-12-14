@@ -1,6 +1,6 @@
 import logging  # 추가: 로깅 모듈 임포트
 import asyncio
-from fastapi import FastAPI, BackgroundTasks, HTTPException  # 변경: HTTPException 임포트
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request  # 변경: Request 추가
 from pydantic import BaseModel
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager  # 추가: asynccontextmanager 임포
 
 from database import save_to_db, create_table, fetch_all_data
 from crawler import Crawler
+# from predict import train_model  # 제거: predict.py 관련 임포트
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,12 +21,19 @@ async def lifespan(app: FastAPI):
     logging.info("테이블이 생성되거나 존재함이 확인되었습니다.")
     
     # 백그라운드 작업 시작
-    asyncio.create_task(crawl_worker(1))
-    asyncio.create_task(save())
+    logging.info("백그라운드 작업을 시작합니다.")
+    task1 = asyncio.create_task(crawl_worker(1))
+    logging.info("crawl_worker 작업이 시작되었습니다.")
+    task2 = asyncio.create_task(save())
+    logging.info("save 작업이 시작되었습니다.")
     
     try:
         yield
     finally:
+        # 작업 취소 등 정리 작업 수행
+        logging.info("백그라운드 작업을 취소합니다.")
+        task1.cancel()
+        task2.cancel()
         try:
             crawler = Crawler()
             crawler.driver.quit()
@@ -88,7 +96,8 @@ def add_data(data: DataRequest):
         raise HTTPException(status_code=500, detail="데이터 삽입 중 오류 발생")
 
 # config.yaml에서 설정 로드
-with open('config.yaml', 'r', encoding='utf-8') as file:
+config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')  # 수정된 경로
+with open(config_path, 'r', encoding='utf-8') as file:
     config = yaml.safe_load(file)
 queries = config['query']  # 변경: query를 리스트로 로드
 max_posts = config['max_posts']
@@ -103,7 +112,9 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
+# 비동기 함수로 정의
 async def crawl_worker(worker_id: int):
+    logging.info(f"crawl_worker {worker_id} 시작")
     crawler = Crawler()
     while True:
         try:
@@ -112,6 +123,7 @@ async def crawl_worker(worker_id: int):
                 logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
                 for url in urls:
                     # 동기 함수 비동기로 실행
+                    logging.info(f"Worker {worker_id}: {url} 크롤링 시작")
                     data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
                     if data:
                         await data_queue.put(data)  # asyncio.Queue 사용
@@ -123,7 +135,9 @@ async def crawl_worker(worker_id: int):
             logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
         await asyncio.sleep(60)  # 60초 대기 후 다음 크롤링 반복
 
+# 비동기 함수로 정의
 async def save():
+    logging.info("save 작업 시작")
     while True:
         try:
             if data_queue.qsize() >= 5:
@@ -140,6 +154,7 @@ async def save():
         except Exception as e:
             logging.error(f"데이터 저장 중 오류 발생: {e}")
 
+# __main__ 부분은 Docker에서 실행되므로 제거하거나 필요에 따라 유지
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
