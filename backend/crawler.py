@@ -21,7 +21,7 @@ class Crawler:
         with open(config_path, 'r', encoding='utf-8') as file:
             config = yaml.safe_load(file)
 
-        self.default_queries: Union[str, List[str]] = config['query']
+        self.default_queries: List[str] = config['query']  # 기존 Union[str, List[str]]에서 List[str]로 변경
         self.max_posts: int = config['max_posts']
         self.client_id: str = 'yxVAM1FtMsLm6a3peK_0'
         self.client_secret: str = '_YEIleXvQ9'
