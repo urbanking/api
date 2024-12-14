@@ -3,11 +3,7 @@ uvicorn
 pymysql
 cryptography
 pandas
-transformers
-torch
-scikit-learn
-pandas
-tf-keras
-accelerate
 beautifulsoup4
-selenium
+selenium==4.5.0
+pyyaml  # 수정: 'yaml'을 'pyyaml'으로 변경
+# webdriver-manager[firefox] 제거

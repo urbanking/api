@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: mysql:8.0
@@ -27,16 +25,10 @@ services:
       DB_USER: root  # root 사용자
       DB_PASSWORD: 1234
       DB_NAME: crawling_db
+      GECKODRIVER: /usr/local/bin/geckodriver  # 추가: Geckodriver 경로 환경 변수 설정
+    volumes:
+      - ./backend/config.yaml:/app/backend/config.yaml  # 수정: config.yaml 파일을 backend 디렉토리로 마운트
 
-  frontend:
-    build:
-      context: ./frontend
-    container_name: simple_frontend
-    depends_on:
-      - backend
-    ports:
-      - "80:80"
-      
   adminer:
     image: adminer
     container_name: adminer

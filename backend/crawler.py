@@ -12,15 +12,16 @@ from selenium.webdriver.support import expected_conditions as EC
 import os
 from typing import List, Union, Callable
 import logging  # 추가: 로깅 모듈 임포트
+from selenium.webdriver.firefox.service import Service as FirefoxService
 
 class Crawler:
     def __init__(self) -> None:
         # config.yaml 파일에서 기본 설정 읽기
-        config_path = os.path.join(os.path.dirname(__file__), '../config.yaml')
+        config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')  # 변경: config.yaml 경로 수정
         with open(config_path, 'r', encoding='utf-8') as file:
             config = yaml.safe_load(file)
 
-        self.default_queries: Union[str, List[str]] = config['query']
+        self.default_queries: List[str] = config['query']  # 기존 Union[str, List[str]]에서 List[str]로 변경
         self.max_posts: int = config['max_posts']
         self.client_id: str = 'yxVAM1FtMsLm6a3peK_0'
         self.client_secret: str = '_YEIleXvQ9'
@@ -30,14 +31,23 @@ class Crawler:
     # def __del__(self):
     #     self.driver.quit()  # 클래스가 소멸될 때 브라우저 닫기
 
-    def create_driver(self) -> webdriver.Chrome:
-        options = webdriver.ChromeOptions()
+    def create_driver(self) -> webdriver.Firefox:
+        options = webdriver.FirefoxOptions()
         options.add_argument("--headless")  # headless 모드 추가
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option("useAutomationExtension", False)
-        return webdriver.Chrome(options=options)
+        options.add_argument("--disable-gpu")  # 추가: GPU 비활성화
+        # options.add_argument("--remote-debugging-port=9222")  # 제거: 지원되지 않는 인자
+
+        # GeckoDriver의 경로를 환경 변수에서 가져오도록 수정
+        geckodriver_path = os.environ.get('GECKODRIVER', '/usr/local/bin/geckodriver')
+        try:
+            driver = webdriver.Firefox(service=FirefoxService(geckodriver_path), options=options)
+            logging.info("Firefox WebDriver가 정상적으로 생성되었습니다.")
+            return driver
+        except Exception as e:
+            logging.error(f"Firefox WebDriver 생성 실패: {e}")
+            raise e
 
     def fetch_urls_from_api(self, query: str, max_posts: int = None) -> List[str]:
         print(f"\nAPI를 사용해 '{query}' 관련 게시물 URL을 수집합니다.")
