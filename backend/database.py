@@ -16,7 +16,7 @@ def get_connection():
     while retries > 0:
         try:
             connection = pymysql.connect(
-                host=os.environ.get('DB_HOST', 'localhost'),
+                host=os.environ.get('DB_HOST', 'db'),
                 port=int(os.environ.get('DB_PORT', 3306)),
                 user=os.environ.get('DB_USER', 'root'),
                 password=os.environ.get('DB_PASSWORD', '1234'),
@@ -40,7 +40,8 @@ def create_table():
         with conn.cursor() as cursor:
             create_table_query = '''
             CREATE TABLE IF NOT EXISTS cr_data2 (
-                id INT AUTO_INCREMENT PRIMARY KEY, 
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                url VARCHAR(255) UNIQUE, 
                 writer VARCHAR(255),
                 date VARCHAR(255),
                 title VARCHAR(255),

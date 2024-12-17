@@ -112,35 +112,58 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-# 비동기 함수로 정의
-async def crawl_worker(worker_id: int):
+# # 비동기 함수로 정의
+# async def crawl_worker(worker_id: int): # crawl_worker는 URL을 크롤링하고, 데이터를 큐(data_queue)에 추가
+#     logging.info(f"crawl_worker {worker_id} 시작")
+#     crawler = Crawler()
+#     while True:
+#         try:
+#             for query in queries:  # 변경: 각 query에 대해 순차적으로 처리
+#                 urls = crawler.fetch_urls_from_api(query, max_posts)
+#                 logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
+#                 for url in urls:
+#                     # 동기 함수 비동기로 실행
+#                     logging.info(f"Worker {worker_id}: {url} 크롤링 시작")
+#                     data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
+#                     if data:
+#                         await data_queue.put(data)  # asyncio.Queue 사용
+#                         logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
+#                         logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 추가: 현재 큐 사이즈 로그
+#                         logging.info(f"크롤링된 제목: {data['title']}")  # 추가: 크롤링된 제목 출력
+#                 logging.info(f"Worker {worker_id}: 크롤링 완료. 60초 후 다음 크롤링 시작.")
+#         except Exception as e:
+#             logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
+#         await asyncio.sleep(60)  # 60초 대기 후 다음 크롤링 반복
+
+# query 1번만
+async def crawl_worker(worker_id: int): 
     logging.info(f"crawl_worker {worker_id} 시작")
     crawler = Crawler()
-    while True:
-        try:
-            for query in queries:  # 변경: 각 query에 대해 순차적으로 처리
-                urls = crawler.fetch_urls_from_api(query, max_posts)
-                logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
-                for url in urls:
-                    # 동기 함수 비동기로 실행
-                    logging.info(f"Worker {worker_id}: {url} 크롤링 시작")
-                    data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
-                    if data:
-                        await data_queue.put(data)  # asyncio.Queue 사용
-                        logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
-                        logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 추가: 현재 큐 사이즈 로그
-                        logging.info(f"크롤링된 제목: {data['title']}")  # 추가: 크롤링된 제목 출력
-                logging.info(f"Worker {worker_id}: 크롤링 완료. 60초 후 다음 크롤링 시작.")
-        except Exception as e:
-            logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
-        await asyncio.sleep(60)  # 60초 대기 후 다음 크롤링 반복
+    try:
+        for query in queries:  # 각 query에 대해 순차적으로 처리
+            urls = crawler.fetch_urls_from_api(query, max_posts)
+            logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
+            for url in urls:
+                # 동기 함수 비동기로 실행
+                logging.info(f"Worker {worker_id}: {url} 크롤링 시작")
+                data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
+                if data:
+                    await data_queue.put(data)  # asyncio.Queue 사용
+                    logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
+                    logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 추가: 현재 큐 사이즈 로그
+                    logging.info(f"크롤링된 제목: {data['title']}")  # 크롤링된 제목 출력
+            logging.info(f"Worker {worker_id}: '{query}' 크롤링 완료.")
+        logging.info(f"Worker {worker_id}: 모든 query에 대해 크롤링이 완료되었습니다.")
+    except Exception as e:
+        logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
+
 
 # 비동기 함수로 정의
-async def save():
+async def save(): # 큐에 쌓인 데이터를 조건에 따라 데이터베이스에 저장
     logging.info("save 작업 시작")
     while True:
-        try:
-            if data_queue.qsize() >= 5:
+        try: 
+            if data_queue.qsize() >= 5: #큐 사이즈가 5 이상이면, 큐에서 데이터를 꺼내(get) 데이터베이스에 저장
                 data_list = []
                 for _ in range(5):
                     data = await data_queue.get()
