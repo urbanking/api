@@ -48,6 +48,12 @@ class Crawler:
         except Exception as e:
             logging.error(f"Firefox WebDriver 생성 실패: {e}")
             raise e
+        
+    def reset_driver(self):
+        logging.warning("WebDriver를 재생성합니다.")
+        if self.driver:
+            self.driver.quit()
+        self.driver = self.create_driver()
 
     def fetch_urls_from_api(self, query: str, max_posts: int = None) -> List[str]:
         print(f"\nAPI를 사용해 '{query}' 관련 게시물 URL을 수집합니다.")

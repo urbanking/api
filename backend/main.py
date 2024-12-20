@@ -113,7 +113,7 @@ logging.basicConfig(
 )
 
 # # 비동기 함수로 정의
-# async def crawl_worker(worker_id: int): # crawl_worker는 URL을 크롤링하고, 데이터를 큐(data_queue)에 추가
+# async def crawl_worker(worker_id: int):
 #     logging.info(f"crawl_worker {worker_id} 시작")
 #     crawler = Crawler()
 #     while True:
@@ -135,22 +135,62 @@ logging.basicConfig(
 #             logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
 #         await asyncio.sleep(60)  # 60초 대기 후 다음 크롤링 반복
 
-# query 1번만
+# async def crawl_worker(worker_id: int = 1, limit: int = 3, start_index: int = 0): 
+#     logging.info(f"crawl_worker {worker_id} 시작 (start_index: {start_index}, limit: {limit})")
+#     crawler = Crawler()
+#     try:
+#         limited_queries = queries[start_index:start_index + limit]  
+#         logging.info(f"Worker {worker_id}: 크롤링할 query 목록 - {limited_queries}")
+
+#         for query in limited_queries:
+#             urls = crawler.fetch_urls_from_api(query, max_posts)
+#             logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
+#             for url in urls:
+#                 retries = 3  # 최대 재시도 횟수
+#                 while retries > 0:
+#                     try:
+#                         logging.info(f"Worker {worker_id}: {url} 크롤링 시작")
+#                         data = await asyncio.get_event_loop().run_in_executor(
+#                             executor, crawler.crawl_blog_content, url
+#                         )
+#                         if data and data['title'] != 'error':  
+#                             await data_queue.put(data)
+#                             logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
+#                             logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")
+#                             logging.info(f"크롤링된 제목: {data['title']}")
+#                         else:
+#                             logging.warning(f"Worker {worker_id}: URL 크롤링 실패 - {url}")
+#                         break  # 성공적으로 크롤링하면 재시도 종료
+#                     except Exception as e:
+#                         logging.error(f"Worker {worker_id}: URL 크롤링 중 오류 발생 - {url}: {e}")
+#                         retries -= 1
+#                         if retries > 0:
+#                             logging.info(f"Worker {worker_id}: WebDriver 재시도 중...")
+#                             crawler.reset_driver()  # WebDriver 재생성
+#                         else:
+#                             logging.warning(f"Worker {worker_id}: {url} 크롤링 재시도 횟수 초과")
+#             logging.info(f"Worker {worker_id}: '{query}' 크롤링 완료.")
+#         logging.info(f"Worker {worker_id}: 모든 query에 대해 크롤링이 완료되었습니다.")
+#     except Exception as e:
+#         logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
+
 async def crawl_worker(worker_id: int): 
     logging.info(f"crawl_worker {worker_id} 시작")
     crawler = Crawler()
     try:
-        for query in queries:  # 각 query에 대해 순차적으로 처리
+        # query 리스트를 3개로 제한
+        limited_queries = queries[:1]  # queries의 첫 3개만 사용
+        for query in limited_queries:  # 각 query에 대해 순차적으로 처리
             urls = crawler.fetch_urls_from_api(query, max_posts)
             logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
             for url in urls:
                 # 동기 함수 비동기로 실행
                 logging.info(f"Worker {worker_id}: {url} 크롤링 시작")
                 data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
-                if data:
+                if data and data['title'] != 'error':  # "error" 데이터 필터링
                     await data_queue.put(data)  # asyncio.Queue 사용
                     logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
-                    logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 추가: 현재 큐 사이즈 로그
+                    logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 현재 큐 사이즈 로그
                     logging.info(f"크롤링된 제목: {data['title']}")  # 크롤링된 제목 출력
             logging.info(f"Worker {worker_id}: '{query}' 크롤링 완료.")
         logging.info(f"Worker {worker_id}: 모든 query에 대해 크롤링이 완료되었습니다.")
@@ -158,12 +198,20 @@ async def crawl_worker(worker_id: int):
         logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
 
 
+
+##실행예시
+# query 리스트에서 10개씩 나누어 크롤링
+# await crawl_worker(worker_id=1, limit=10, start_index=0)  # 첫 번째 10개 크롤링
+# await crawl_worker(worker_id=2, limit=10, start_index=10)  # 다음 10개 크롤링
+# await crawl_worker(worker_id=3, limit=10, start_index=20)  # 그다음 10개 크롤링
+
+
 # 비동기 함수로 정의
-async def save(): # 큐에 쌓인 데이터를 조건에 따라 데이터베이스에 저장
+async def save():
     logging.info("save 작업 시작")
     while True:
-        try: 
-            if data_queue.qsize() >= 5: #큐 사이즈가 5 이상이면, 큐에서 데이터를 꺼내(get) 데이터베이스에 저장
+        try:
+            if data_queue.qsize() >= 5:
                 data_list = []
                 for _ in range(5):
                     data = await data_queue.get()

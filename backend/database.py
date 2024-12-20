@@ -38,10 +38,14 @@ def create_table():
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
+            # 기존 데이터 삭제
+            cursor.execute("TRUNCATE TABLE cr_data2;")
+            logging.info("테이블 데이터가 초기화되었습니다.")
+
+            # 테이블 생성
             create_table_query = '''
             CREATE TABLE IF NOT EXISTS cr_data2 (
                 id INT AUTO_INCREMENT PRIMARY KEY,
-                url VARCHAR(255) UNIQUE, 
                 writer VARCHAR(255),
                 date VARCHAR(255),
                 title VARCHAR(255),
