@@ -189,6 +189,8 @@ async def crawl_worker(worker_id: int = 1, limit: int = 5):
                             executor, crawler.crawl_blog_content, url
                         )
                         if data and data['title'] != 'error':  # "error" 데이터 필터링
+                            # restaurant_name 추가
+                            data['restaurant_name'] = query
                             await data_queue.put(data)
                             logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
                             logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")
@@ -245,7 +247,6 @@ async def crawl_worker(worker_id: int = 1, limit: int = 5):
 # await crawl_worker(worker_id=3, limit=10, start_index=20)  # 그다음 10개 크롤링
 
 
-# 비동기 함수로 정의
 async def save():
     logging.info("save 작업 시작")
     while True:
@@ -256,9 +257,17 @@ async def save():
                     data = await data_queue.get()
                     if data:
                         data_list.append(data)
-                await asyncio.get_event_loop().run_in_executor(None, save_to_db, data_list)  # 비동기로 save_to_db 실행
-                logging.info("5개의 데이터를 데이터베이스에 저장했습니다.")
-                logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 추가: 현재 큐 사이즈 로그
+                if data_list:
+                    # restaurant_name은 batch 내 첫 번째 데이터의 값으로 사용
+                    restaurant_name = data_list[0].get('restaurant_name', None)
+                    if restaurant_name:
+                        await asyncio.get_event_loop().run_in_executor(
+                            None, save_to_db, data_list, restaurant_name
+                        )  # 비동기로 save_to_db 실행
+                        logging.info("5개의 데이터를 데이터베이스에 저장했습니다.")
+                        logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")
+                    else:
+                        logging.warning("restaurant_name이 누락된 데이터가 발견되었습니다.")
             else:
                 await asyncio.sleep(1)  # 큐에 5개 미만이면 1초 대기
         except Exception as e:

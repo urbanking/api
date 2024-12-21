@@ -39,6 +39,7 @@ def create_table():
         with conn.cursor() as cursor:
             create_table_query = '''
             CREATE TABLE IF NOT EXISTS cr_data2 (
+                restaurant_name VARCHAR(255),
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 writer VARCHAR(255),
                 date VARCHAR(255),
@@ -60,17 +61,17 @@ def create_table():
         conn.close()
 
 
-# 데이터베이스에 데이터 삽입 함수
-def save_to_db(data_list):
+def save_to_db(data_list, restaurant_name):
     conn = get_connection()
     MAX_TAG_LENGTH = 255  # 태그 최대 길이 제한
 
     try:
         with conn.cursor() as cursor:
             insert_query = '''
-            INSERT INTO cr_data2 (writer, date, title, content, tags, sympathy, post_url, ad_images, 광고)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO cr_data2 (restaurant_name, writer, date, title, content, tags, sympathy, post_url, ad_images, 광고)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON DUPLICATE KEY UPDATE
+                restaurant_name = VALUES(restaurant_name),
                 writer = VALUES(writer),
                 date = VALUES(date),
                 title = VALUES(title),
@@ -81,21 +82,24 @@ def save_to_db(data_list):
                 광고 = VALUES(광고);
             '''
 
-            # 태그 길이 제한 로직 추가
+            # 태그 길이 제한 및 데이터 확인
             data_values = [
                 (
-                    item['writer'],
-                    item['date'],
-                    item['title'],
-                    item['content'],
-                    item['tags'][:MAX_TAG_LENGTH] if len(item['tags']) > MAX_TAG_LENGTH else item['tags'],
-                    item['sympathy'],
-                    item['post_url'],
-                    item['ad_images'],
-                    item['광고']
+                    restaurant_name,
+                    item.get('writer', 'unknown'),
+                    item.get('date', 'unknown'),
+                    item.get('title', 'unknown'),
+                    item.get('content', 'unknown'),
+                    item.get('tags')[:MAX_TAG_LENGTH] if item.get('tags') and len(item['tags']) > MAX_TAG_LENGTH else (item.get('tags') or ""),
+                    item.get('sympathy', 0),
+                    item.get('post_url', 'unknown'),
+                    item.get('ad_images', ''),
+                    item.get('광고', 'X')
                 )
                 for item in data_list
             ]
+
+            logging.info(f"Data to be saved: {data_values}")
             cursor.executemany(insert_query, data_values)
 
         conn.commit()
@@ -104,6 +108,7 @@ def save_to_db(data_list):
         logging.error(f"데이터베이스 저장 중 오류 발생: {e}")
     finally:
         conn.close()
+
 
 
 
