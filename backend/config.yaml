@@ -1,5 +1,3 @@
-max_posts: 10
-num_crawlers: 1
 query:
 - 엠브로돈까스 신촌점
 - 신촌맛집 여몽(旅夢)ㅣSinchon Izakaya Restaurant Pub
@@ -177,3 +175,6 @@ query:
 - 툭툭누들타이 신촌
 - 신촌정직한족발
 - 북촌손만두 신촌 2 지점
+
+max_posts: 10
+num_crawlers: 1

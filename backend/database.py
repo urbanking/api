@@ -33,16 +33,10 @@ def get_connection():
     logging.critical("여러 번 재시도 후에도 데이터베이스에 연결할 수 없습니다.")
     raise Exception("여러 번 재시도 후에도 데이터베이스에 연결할 수 없습니다.")
 
-# 테이블 생성 함수
 def create_table():
     conn = get_connection()
     try:
         with conn.cursor() as cursor:
-            # 기존 데이터 삭제
-            cursor.execute("TRUNCATE TABLE cr_data2;")
-            logging.info("테이블 데이터가 초기화되었습니다.")
-
-            # 테이블 생성
             create_table_query = '''
             CREATE TABLE IF NOT EXISTS cr_data2 (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -52,46 +46,66 @@ def create_table():
                 content TEXT,
                 tags VARCHAR(255),
                 sympathy INT,
-                post_url VARCHAR(255),
+                post_url VARCHAR(255) UNIQUE,
                 ad_images TEXT,
                 광고 VARCHAR(255)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             '''
             cursor.execute(create_table_query)
+            logging.info("테이블이 생성되었거나 이미 존재합니다.")
         conn.commit()
-        print("Table checked/created successfully!")
+    except Exception as e:
+        logging.error(f"테이블 생성 중 오류 발생: {e}")
     finally:
         conn.close()
+
 
 # 데이터베이스에 데이터 삽입 함수
 def save_to_db(data_list):
     conn = get_connection()
+    MAX_TAG_LENGTH = 255  # 태그 최대 길이 제한
+
     try:
         with conn.cursor() as cursor:
             insert_query = '''
             INSERT INTO cr_data2 (writer, date, title, content, tags, sympathy, post_url, ad_images, 광고)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                writer = VALUES(writer),
+                date = VALUES(date),
+                title = VALUES(title),
+                content = VALUES(content),
+                tags = VALUES(tags),
+                sympathy = VALUES(sympathy),
+                ad_images = VALUES(ad_images),
+                광고 = VALUES(광고);
             '''
+
+            # 태그 길이 제한 로직 추가
             data_values = [
                 (
                     item['writer'],
                     item['date'],
                     item['title'],
                     item['content'],
-                    item['tags'],
+                    item['tags'][:MAX_TAG_LENGTH] if len(item['tags']) > MAX_TAG_LENGTH else item['tags'],
                     item['sympathy'],
                     item['post_url'],
                     item['ad_images'],
                     item['광고']
-                ) for item in data_list
+                )
+                for item in data_list
             ]
             cursor.executemany(insert_query, data_values)
+
         conn.commit()
-        logging.info(f"{len(data_values)} rows inserted into the database.")
+        logging.info(f"{len(data_values)} rows inserted/updated in the database.")
     except Exception as e:
         logging.error(f"데이터베이스 저장 중 오류 발생: {e}")
     finally:
         conn.close()
+
+
 
 # 데이터베이스에서 모든 데이터 조회 함수
 def fetch_all_data():
