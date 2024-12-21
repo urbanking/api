@@ -37,6 +37,6 @@ def save_table_to_csv(table_name, csv_file_name):
 
 # 스크립트 실행
 if __name__ == "__main__":
-    TABLE_NAME = "cr_data2"         # 저장할 테이블 이름
-    CSV_FILE_NAME = "cr_data2.csv"  # 저장할 CSV 파일 이름
+    TABLE_NAME = "cr_data30"         # 저장할 테이블 이름
+    CSV_FILE_NAME = "cr_data30.csv"  # 저장할 CSV 파일 이름
     save_table_to_csv(TABLE_NAME, CSV_FILE_NAME)
