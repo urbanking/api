@@ -176,5 +176,5 @@ query:
 - 신촌정직한족발
 - 북촌손만두 신촌 2 지점
 
-max_posts: 30
+max_posts: 10
 num_crawlers: 1

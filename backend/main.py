@@ -120,16 +120,18 @@ import json  # 상태 저장을 위한 json
 import os
 import logging  # 로깅 모듈 추가
 
-STATE_FILE = "crawl_state.json"  # 상태 파일 경로
+STATE_FILE = os.path.join(os.path.dirname(__file__), "crawl_state.json")  # 절대 경로로 수정
 DEFAULT_START_INDEX = 0  # 기본 시작 인덱스, 필요한 경우 90으로 설정 가능
-
 
 # 상태 저장 함수
 def save_crawl_state(start_index: int):
-    with open(STATE_FILE, "w") as file:
-        json.dump({"start_index": start_index}, file)
-    logging.info(f"크롤링 상태 저장됨: start_index={start_index}")
-
+    try:
+        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)  # 디렉토리 생성
+        with open(STATE_FILE, "w") as file:
+            json.dump({"start_index": start_index}, file)
+        logging.info(f"크롤링 상태 저장됨: start_index={start_index}")
+    except Exception as e:
+        logging.error(f"상태 저장 중 오류 발생: {e}")
 
 # 상태 로드 함수
 def load_crawl_state(default_index: int = DEFAULT_START_INDEX) -> int:
@@ -137,12 +139,17 @@ def load_crawl_state(default_index: int = DEFAULT_START_INDEX) -> int:
     상태를 로드하며, 상태 파일이 없으면 기본값을 반환합니다.
     기본값은 DEFAULT_START_INDEX 또는 호출 시 설정한 값으로 설정됩니다.
     """
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r") as file:
-            state = json.load(file)
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, "r") as file:
+                state = json.load(file)
+            logging.info(f"크롤링 상태 로드됨: start_index={state.get('start_index', default_index)}")
             return state.get("start_index", default_index)
-    return default_index  # 파일이 없을 경우 기본값 반환
-
+        else:
+            logging.info(f"상태 파일이 존재하지 않아 기본값 사용: start_index={default_index}")
+    except Exception as e:
+        logging.error(f"상태 로드 중 오류 발생: {e}")
+    return default_index  # 파일이 없거나 오류 발생 시 기본값 반환
 
 # 비동기 크롤러 작업
 async def crawl_worker(worker_id: int = 1, limit: Optional[int] = 170):
@@ -150,8 +157,11 @@ async def crawl_worker(worker_id: int = 1, limit: Optional[int] = 170):
     crawler = Crawler()
 
     # 이전 상태에서 시작
-    start_index = load_crawl_state(default_index=0)  # 기본값을 90으로 설정
+    start_index = load_crawl_state(default_index=0)  # 기본값을 0으로 설정
     logging.info(f"이전 크롤링 상태에서 시작: start_index={start_index}, limit={limit}")
+
+    batch_size = 5  # 배치 크기 설정
+    processed_queries = 0  # 처리된 쿼리 수 초기화
 
     try:
         limit = limit or num_crawlers * 170  # 수정: limit 기본값 설정
@@ -191,12 +201,21 @@ async def crawl_worker(worker_id: int = 1, limit: Optional[int] = 170):
 
             # 현재 인덱스 상태 저장
             save_crawl_state(query_index + 1)  # 다음 query 시작 위치 저장
+            processed_queries += 1  # 처리된 쿼리 수 증가
+
+            if processed_queries >= batch_size:
+                logging.info(f"Worker {worker_id}: 배치 크기 {batch_size}에 도달하여 작업을 종료합니다.")
+                break  # 배치 크기에 도달하면 루프 종료
 
         logging.info(f"Worker {worker_id}: 모든 query에 대해 크롤링이 완료되었습니다.")
 
     except Exception as e:
         logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
-
+    finally:
+        global crawl_task
+        crawl_task = None  # 작업 완료 시 crawl_task 초기화
+        logging.info(f"Worker {worker_id}: crawl_task가 초기화되었습니다.")
+        
 
 async def save():
     logging.info("save 작업 시작")
@@ -230,7 +249,21 @@ async def start_crawler():
     global crawl_task
     if crawl_task and not crawl_task.done():
         raise HTTPException(status_code=400, detail="크롤러가 이미 실행 중입니다.")
+    
     crawl_task = asyncio.create_task(crawl_worker())
+    
+    # 작업 완료 시 crawl_task를 None으로 설정하는 콜백 추가
+    def on_completion(task):
+        global crawl_task
+        crawl_task = None
+        try:
+            task.result()
+            logging.info("crawl_worker 작업이 정상적으로 완료되었습니다.")
+        except Exception as e:
+            logging.error(f"crawl_worker 작업 중 예외 발생: {e}")
+
+    crawl_task.add_done_callback(on_completion)
+    
     return {"message": "크롤러가 시작되었습니다."}
 
 # 크롤러 중지 엔드포인트 추가
