@@ -2,7 +2,7 @@ import logging  # 추가: 로깅 모듈 임포트
 import asyncio
 from fastapi import FastAPI, BackgroundTasks, HTTPException, Request  # 변경: Request 추가
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional  # 추가: Optional 임포트
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +14,9 @@ from database import save_to_db, create_table, fetch_all_data
 from crawler import Crawler
 # from predict import train_model  # 제거: predict.py 관련 임포트
 
+# 백그라운드 태스크 관리
+crawl_task: Optional[asyncio.Task] = None  # 추가: 크롤러 태스크 변수 선언
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 시작 시 초기화 작업
@@ -22,6 +25,7 @@ async def lifespan(app: FastAPI):
     
     # 백그라운드 작업 시작
     logging.info("백그라운드 작업을 시작합니다.")
+    global crawl_task  # 추가: 전역 크롤러 태스크 사용
     task1 = asyncio.create_task(crawl_worker(1))
     logging.info("crawl_worker 작업이 시작되었습니다.")
     task2 = asyncio.create_task(save())
@@ -32,7 +36,8 @@ async def lifespan(app: FastAPI):
     finally:
         # 작업 취소 등 정리 작업 수행
         logging.info("백그라운드 작업을 취소합니다.")
-        task1.cancel()
+        if crawl_task:
+            crawl_task.cancel()  # 추가: 크롤러 태스크 취소
         task2.cancel()
         try:
             crawler = Crawler()
@@ -111,36 +116,12 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
-
-# # 비동기 함수로 정의
-# async def crawl_worker(worker_id: int):
-#     logging.info(f"crawl_worker {worker_id} 시작")
-#     crawler = Crawler()
-#     while True:
-#         try:
-#             for query in queries:  # 변경: 각 query에 대해 순차적으로 처리
-#                 urls = crawler.fetch_urls_from_api(query, max_posts)
-#                 logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
-#                 for url in urls:
-#                     # 동기 함수 비동기로 실행
-#                     logging.info(f"Worker {worker_id}: {url} 크롤링 시작")
-#                     data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
-#                     if data:
-#                         await data_queue.put(data)  # asyncio.Queue 사용
-#                         logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
-#                         logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 추가: 현재 큐 사이즈 로그
-#                         logging.info(f"크롤링된 제목: {data['title']}")  # 추가: 크롤링된 제목 출력
-#                 logging.info(f"Worker {worker_id}: 크롤링 완료. 60초 후 다음 크롤링 시작.")
-#         except Exception as e:
-#             logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
-#         await asyncio.sleep(60)  # 60초 대기 후 다음 크롤링 반복
-
 import json  # 상태 저장을 위한 json
 import os
 import logging  # 로깅 모듈 추가
 
 STATE_FILE = "crawl_state.json"  # 상태 파일 경로
-DEFAULT_START_INDEX = 90  # 기본 시작 인덱스, 필요한 경우 90으로 설정 가능
+DEFAULT_START_INDEX = 0  # 기본 시작 인덱스, 필요한 경우 90으로 설정 가능
 
 
 # 상태 저장 함수
@@ -164,15 +145,16 @@ def load_crawl_state(default_index: int = DEFAULT_START_INDEX) -> int:
 
 
 # 비동기 크롤러 작업
-async def crawl_worker(worker_id: int = 1, limit: int = 5):
+async def crawl_worker(worker_id: int = 1, limit: Optional[int] = 170):
     logging.info(f"crawl_worker {worker_id} 시작")
     crawler = Crawler()
 
     # 이전 상태에서 시작
-    start_index = load_crawl_state(default_index=90)  # 기본값을 90으로 설정
+    start_index = load_crawl_state(default_index=0)  # 기본값을 90으로 설정
     logging.info(f"이전 크롤링 상태에서 시작: start_index={start_index}, limit={limit}")
 
     try:
+        limit = limit or num_crawlers * 170  # 수정: limit 기본값 설정
         limited_queries = queries[start_index:start_index + limit]  # 제한된 query 목록
         logging.info(f"Worker {worker_id}: 크롤링할 query 목록 - {limited_queries}")
 
@@ -215,37 +197,6 @@ async def crawl_worker(worker_id: int = 1, limit: int = 5):
     except Exception as e:
         logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
 
-# async def crawl_worker(worker_id: int): 
-#     logging.info(f"crawl_worker {worker_id} 시작")
-#     crawler = Crawler()
-#     try:
-#         # query 리스트를 3개로 제한
-#         limited_queries = queries[:2]  # queries의 첫 3개만 사용
-#         for query in limited_queries:  # 각 query에 대해 순차적으로 처리
-#             urls = crawler.fetch_urls_from_api(query, max_posts)
-#             logging.info(f"Worker {worker_id}: {len(urls)}개의 URL을 수집했습니다.")
-#             for url in urls:
-#                 # 동기 함수 비동기로 실행
-#                 logging.info(f"Worker {worker_id}: {url} 크롤링 시작")
-#                 data = await asyncio.get_event_loop().run_in_executor(executor, crawler.crawl_blog_content, url)
-#                 if data and data['title'] != 'error':  # "error" 데이터 필터링
-#                     await data_queue.put(data)  # asyncio.Queue 사용
-#                     logging.info(f"Worker {worker_id}: 데이터 큐에 추가됨 - {url}")
-#                     logging.info(f"현재 큐에 {data_queue.qsize()}개가 있습니다.")  # 현재 큐 사이즈 로그
-#                     logging.info(f"크롤링된 제목: {data['title']}")  # 크롤링된 제목 출력
-#             logging.info(f"Worker {worker_id}: '{query}' 크롤링 완료.")
-#         logging.info(f"Worker {worker_id}: 모든 query에 대해 크롤링이 완료되었습니다.")
-#     except Exception as e:
-#         logging.error(f"Worker {worker_id}: 크롤링 중 오류 발생 - {e}")
-
-
-
-##실행예시
-# query 리스트에서 10개씩 나누어 크롤링
-# await crawl_worker(worker_id=1, limit=10, start_index=0)  # 첫 번째 10개 크롤링
-# await crawl_worker(worker_id=2, limit=10, start_index=10)  # 다음 10개 크롤링
-# await crawl_worker(worker_id=3, limit=10, start_index=20)  # 그다음 10개 크롤링
-
 
 async def save():
     logging.info("save 작업 시작")
@@ -273,6 +224,24 @@ async def save():
         except Exception as e:
             logging.error(f"데이터 저장 중 오류 발생: {e}")
 
+# 크롤러 시작 엔드포인트 추가
+@app.post("/start-crawler")
+async def start_crawler():
+    global crawl_task
+    if crawl_task and not crawl_task.done():
+        raise HTTPException(status_code=400, detail="크롤러가 이미 실행 중입니다.")
+    crawl_task = asyncio.create_task(crawl_worker())
+    return {"message": "크롤러가 시작되었습니다."}
+
+# 크롤러 중지 엔드포인트 추가
+@app.post("/stop-crawler")
+async def stop_crawler():
+    global crawl_task
+    if crawl_task and not crawl_task.done():
+        crawl_task.cancel()
+        return {"message": "크롤러가 중지되었습니다."}
+    else:
+        raise HTTPException(status_code=400, detail="실행 중인 크롤러가 없습니다.")
 
 # __main__ 부분은 Docker에서 실행되므로 제거하거나 필요에 따라 유지
 if __name__ == "__main__":
